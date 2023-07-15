@@ -1,6 +1,6 @@
 namespace: devsec
 name: hardening
-version: 7.14.1
+version: 8.7.0
 readme: README.md
 authors:
   - dev-sec <hello@dev-sec.io>
@@ -42,3 +42,4 @@ build_ignore:
   - .tox
   - tox.ini
   - .yamllint
+  - renovate.json

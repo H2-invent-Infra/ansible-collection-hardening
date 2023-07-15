@@ -1,6 +1,7 @@
 # devsec.os_hardening
 
 ![devsec.os_hardening](https://github.com/dev-sec/ansible-os-hardening/workflows/devsec.os_hardening/badge.svg)
+![devsec.os_hardening VM](https://github.com/dev-sec/ansible-os-hardening/workflows/devsec.os_hardening%20VM/badge.svg)
 
 ## Looking for the old ansible-os-hardening role?
 
@@ -57,7 +58,7 @@ If you're using Docker / Kubernetes+Docker you'll need to override the ipv4 ip f
 
 ### hidepid on RHEL/CentOS 7
 
-When having `polkit-0.112-18.el7` (and later) installed and `/proc` mounted with `hidepid=2`, everytime someone uses `systemctl` the following error is displayed, but systemctl runs successfully.
+When having `polkit-0.112-18.el7` (and later) installed and `/proc` mounted with `hidepid=2`, every time someone uses `systemctl` the following error is displayed, but systemctl runs successfully.
 
 ```
 Error registering authentication agent: GDBus.Error:org.freedesktop.PolicyKit1.Error.Failed: Cannot determine user of subject (polkit-error-quark, 0)
@@ -106,6 +107,9 @@ We know that this is the case on Raspberry Pi.
 - `os_auth_pw_min_age`
   - Default: `7`
   - Description: minimum password age (before allowing any other password change).
+- `os_auth_pw_warn_age`
+  - Default: `7`
+  - Description: number of days of warning before password expires.
 - `os_auth_pw_remember`
   - Default: `5`
   - Description: how many used passwords are record.
@@ -130,12 +134,16 @@ We know that this is the case on Raspberry Pi.
 - `os_auth_pam_sssd_enable`
   - Default: `false` (on RHEL8/CentOS8/Fedora `true`)
   - Description: activate PAM auth support for sssd
+- `os_auth_pam_oddjob_mkhomedir`
+  - Default: `false`
+  - Description: Enables automatic homedir e.g. in FreeIPA environments
 - `os_security_users_allow`
   - Default: `[]`
   - Description: list of things, that a user is allowed to do. May contain `change_user`.
 - `os_security_kernel_enable_module_loading`
   - Default: `true`
   - Description: true if you want to allowed to change kernel modules once the system is running (eg `modprobe`, `rmmod`).
+  - WARNING: Rebuilding initramfs is deprecated and will be removed in the next major release. For more information take a look at this issue: <https://github.com/dev-sec/ansible-collection-hardening/pull/591>
 - `os_security_kernel_enable_core_dump`
   - Default: `false`
   - Description: kernel is crashing or otherwise misbehaving and a kernel core dump is created.
@@ -217,15 +225,39 @@ We know that this is the case on Raspberry Pi.
 - `os_auditd_max_log_file`
   - Default: `6`
   - Description: This keyword specifies the maximum file size in megabytes. When this limit is reached, it will trigger a configurable action. The value given must be numeric.
+- `os_auditd_num_logs`
+  - Default: `5`
+  - Description: This keyword specifies the number of log files to keep if `rotate` is given as the max_log_file_action. The value given must be numeric.
 - `hidepid_option`
   - Default: `2` (on RHEL/CentOS7 `0`, see known limitations)
   - Description: `0`: This is the default setting and gives you the default behaviour. `1`: With this option an normal user would not see other processes but their own about ps, top etc, but he is still able to see process IDs in /proc. `2`: Users are only able too see their own processes (like with hidepid=1), but also the other process IDs are hidden for them in /proc.
 - `proc_mnt_options`
   - Default: `rw,nosuid,nodev,noexec,relatime,hidepid={{ hidepid_option }}`
   - Description: Mount proc with hardenized options, including `hidepid` with variable value.
+- `os_ignore_users`
+  - Default: `['vagrant', 'kitchen']`
+  - Description: Specify system accounts whose login should not be disabled and password not changed
+- `os_chmod_home_folders`
+  - Default: `true`
+  - Description: Set to `false` to disable "chmod 700" of home folders for regular users
 - `os_ignore_home_folder_users`
-  - Default: `lost+found`
-  - Description: specify user home folders in `/home` that shouldn't be chmodded to 700
+  - Default: `[]`
+  - Description: Specify user accounts, whose home folders shouldn't be chmodded to 700 when "os_chmod_home_folders" is enabled.
+- `os_chmod_rootuser_home_folder`
+  - Default: `true`
+  - Description: Set to `false` to disable "chmod 700" of root's home folder
+- `os_rootuser_pw_ageing`
+  - Default: `false`
+  - Description: Set to true to enforce password age settings for root user(s)
+- `os_remove_additional_root_users`
+  - Default: `false`
+  - Description: When enabled and there are multiple users with UID=0, only "root" will be kept. Others will be deleted.
+- `os_user_pw_ageing`
+  - Default: `true`
+  - Description: Set to false to disable password age enforcement on existing users
+- `os_users_without_password_ageing`
+  - Default: `[]`
+  - Description: List of users, where password ageing should not be enforced even if "os_user_pw_ageing" is enabled
 - `os_cron_enabled`
   - Default: `true`
   - Description: Set to false to disable installing and configuring cron.
@@ -237,7 +269,7 @@ We know that this is the case on Raspberry Pi.
   - Description: Set to false to disable installing and configuring limits.
 - `os_login_defs_enabled`
   - Default: `true`
-  - Description: Set to false to disable installing and configuring login_defs.
+  - Description: Set to false to disable installing and configuring login_defs for newly created users.
 - `os_minimize_access_enabled`
   - Default: `true`
   - Description: Set to false to disable installing and configuring minimize_access.
@@ -283,6 +315,249 @@ We know that this is the case on Raspberry Pi.
 - `os_sha_crypt_max_rounds`
   - Default: `640000`
   - Description: Define the number of maximum SHA rounds. With a lot of rounds brute forcing the password is more difficult. But note also that it more CPU resources will be needed to authenticate users. The values must be inside the 1000-999999999 range.
+- `os_auditd_enabled`
+  - Default: `true`
+  - Description: Set to false to disable installing and configuring `auditd`.
+- `os_auditd_flush`
+  - Default: `INCREMENTAL`
+  - Description: Valid values are none, incremental, incremental_async, data, and sync.
+- `os_auditd_max_log_file`
+  - Default: 6
+  - Description: This keyword specifies the maximum file size in megabytes. When this limit is reached, it will trigger a configurable action.
+- `os_auditd_max_log_file_action`
+  - Default: `keep_logs`
+  - Description: This parameter tells the system what action to take when the system has detected that the max file size limit has been reached. Valid values are ignore, syslog, suspend, rotate and keep_logs.
+- `os_auditd_admin_space_left`
+  - Default: 50
+  - Description: This is a numeric value in megabytes that tells the audit daemon when to perform a configurable action because the system is running low on disk space.
+- `os_auditd_space_left`
+  - Default: 75
+  - Description: If the free space in the filesystem containing log_file drops below this value, the audit daemon takes the action specified by space_left_action.
+- `os_auditd_space_left_action`
+  - Default: SYSLOG
+  - Description: This parameter tells the system what action to take when the system has detected that it is starting to get low on disk space.
+- `os_auditd_action_mail_acct`
+  - Default: root
+  - Description: If `space_left_action` or `admin_space_left_action` are set to `email`, uses the address or alias to send the email using `/usr/lib/sendmail`. If the address or alias is not local, requires email properly configured on the machine and network.
+- `os_auditd_log_format`
+  - Default: `RAW`
+  - Description: The log format describes how the information should be stored on disk. There are 2 options: raw and enriched. If set to `RAW`, the audit records will be stored in a format exactly as the kernel sends it. The `ENRICHED` option will resolve all uid, gid, syscall, architecture, and socket address information before writing the event to disk. This aids in making sense of events created on one system but reported/analyzed on another system.
+- `os_mnt_boot_dir_mode`
+  - Default: `0700`
+  - Description: Set default perimissions for /boot
+- `os_mnt_boot_enabled`
+  - Default: `false`
+  - Description: Set to true to configure /boot mountpoint
+- `os_mnt_boot_src`
+  - Default: `''`
+  - Description: Set mount source for /boot
+- `os_mnt_boot_options`
+  - Default: `rw,nosuid,nodev,noexec`
+  - Description: Configure mount options for /boot
+- `os_mnt_boot_filesystem`
+  - Default: `""`
+  - Description: Configure file system for fstab entry /boot. If empty, the current file system type will be used.
+- `os_mnt_boot_dump`
+  - Default: ext3 + ext4 `1` / other `0`
+  - Description: Configure dump for fstab entry /var/tmp. If empty, the default depends on fstype.
+- `os_mnt_boot_passno`
+  - Default: ext3 + ext4 `2` / other `0`
+  - Description: Configure passno for fstab entry /var/tmp. If empty, the default depends on fstype.
+- `os_mnt_dev_dir_mode`
+  - Default: `0755`
+  - Description: Set default perimissions for /dev
+- `os_mnt_dev_enabled`
+  - Default: `true`
+  - Description: Set to false to ignore /dev mountpoint
+- `os_mnt_dev_src`
+  - Default: `devtmpfs`
+  - Description: Set mount source for /dev
+- `os_mnt_dev_options`
+  - Default: `'rw,nosuid,noexec'`
+  - Description: Configure mount options for /dev
+- `os_mnt_dev_filesystem`
+  - Default: `devtmpfs`
+  - Description: Configure file system for fstab entry /dev
+- `os_mnt_dev_dump`
+  - Default: `0`
+  - Description: Configure dump for fstab entry /var/tmp.
+- `os_mnt_dev_passno`
+  - Default: `0`
+  - Description: Configure passno for fstab entry /var/tmp.
+- `os_mnt_dev_shm_dir_mode`
+  - Default: `1777`
+  - Description: Set default perimissions for /dev/shm
+- `os_mnt_dev_shm_enabled`
+  - Default: `true`
+  - Description: Set to false to ignore /dev/shm mountpoint
+- `os_mnt_dev_shm_src`
+  - Default: `tmpfs`
+  - Description: Set mount source for /dev/shm
+- `os_mnt_dev_shm_options`
+  - Default: `rw,nosuid,nodev,noexec`
+  - Description: Configure mount options for /dev/shm
+- `os_mnt_dev_shm_filesystem`
+  - Default: `tmpfs`
+  - Description: Configure file system for fstab entry /dev/shm
+- `os_mnt_dev_shm_dump`
+  - Default: `0`
+  - Description: Configure dump for fstab entry /var/tmp.
+- `os_mnt_dev_shm_passno`
+  - Default: `0`
+  - Description: Configure passno for fstab entry /var/tmp.
+- `os_mnt_home_dir_mode`
+  - Default: `0755`
+  - Description: Set default perimissions for /home
+- `os_mnt_home_enabled`
+  - Default: `false`
+  - Description: Set to true to configure /home mountpoint
+- `os_mnt_home_src`
+  - Default: `""`
+  - Description: Set mount source for /home. If empty, the current file system source device will be used.
+- `os_mnt_home_options`
+  - Default: `rw,nosuid,nodev`
+  - Description: Configure mount options for /home
+- `os_mnt_home_filesystem`
+  - Default: `""`
+  - Description: Configure file system for fstab entry /home. If empty, the current file system type will be used.
+- `os_mnt_home_dump`
+  - Default: ext3 + ext4 `1` / other `0`
+  - Description: Configure dump for fstab entry /var/tmp. If empty, the default depends on fstype.
+- `os_mnt_home_passno`
+  - Default: ext3 + ext4 `2` / other `0`
+  - Description: Configure passno for fstab entry /var/tmp. If empty, the default depends on fstype.
+- `os_mnt_run_dir_mode`
+  - Default: `0755`
+  - Description: Set default perimissions for /run
+- `os_mnt_run_enabled`
+  - Default: `true`
+  - Description: Set to false to ignore /run mountpoint
+- `os_mnt_run_src`
+  - Default: `tmpfs`
+  - Description: Set mount source for /run
+- `os_mnt_run_options`
+  - Default: `rw,nosuid,nodev`
+  - Description: Configure mount options for /run
+- `os_mnt_run_filesystem`
+  - Default: `tmpfs`
+  - Description: Configure file system for fstab entry /run
+- `os_mnt_run_dump`
+  - Default: `0`
+  - Description: Configure dump for fstab entry /var/tmp.
+- `os_mnt_run_passno`
+  - Default: `0`
+  - Description: Configure passno for fstab entry /var/tmp.
+- `os_mnt_tmp_dir_mode`
+  - Default: `1777`
+  - Description: Set default perimissions for /tmp
+- `os_mnt_tmp_enabled`
+  - Default: `false`
+  - Description: Set to true to configure /tmp mountpoint
+- `os_mnt_tmp_src`
+  - Default: `""`
+  - Description: Set mount source for /tmp. If empty, the current file system source device will be used.
+- `os_mnt_tmp_options`
+  - Default: `rw,nosuid,nodev,noexec`
+  - Description: Configure mount options for /tmp
+- `os_mnt_tmp_filesystem`
+  - Default: `""`
+  - Description: Configure file system for fstab entry /tmp. If empty, the current file system type will be used.
+- `os_mnt_tmp_dump`
+  - Default: ext3 + ext4 `1` / other `0`
+  - Description: Configure dump for fstab entry /var/tmp. If empty, the default depends on fstype.
+- `os_mnt_tmp_passno`
+  - Default: ext3 + ext4 `2` / other `0`
+  - Description: Configure passno for fstab entry /var/tmp. If empty, the default depends on fstype.
+- `os_mnt_var_dir_mode`
+  - Default: `0755`
+  - Description: Set default perimissions for /var
+- `os_mnt_var_enabled`
+  - Default: `false`
+  - Description: Set to true to configure /var mountpoint
+- `os_mnt_var_src`
+  - Default: `""`
+  - Description: Set mount source for /var. If empty, the current file system source device will be used.
+- `os_mnt_var_options`
+  - Default: `rw,nosuid,nodev`
+  - Description: Configure mount options for /var
+- `os_mnt_var_filesystem`
+  - Default: `""`
+  - Description: Configure file system for fstab entry /var. If empty, the current file system type will be used.
+- `os_mnt_var_dump`
+  - Default: ext3 + ext4 `1` / other `0`
+  - Description: Configure dump for fstab entry /var/tmp. If empty, the default depends on fstype.
+- `os_mnt_var_passno`
+  - Default: ext3 + ext4 `2` / other `0`
+  - Description: Configure passno for fstab entry /var/tmp. If empty, the default depends on fstype.
+- `os_mnt_var_log_dir_mode`
+  - Default: `0755`
+  - Description: Set default perimissions for /var/log
+- `os_mnt_var_log_enabled`
+  - Default: `false`
+  - Description: Set to true to configure /var/log mountpoint
+- `os_mnt_var_log_src`
+  - Default: `""`
+  - Description: Set mount source for /var/log. If empty, the current file system source device will be used.
+- `os_mnt_var_log_options`
+  - Default: `rw,nosuid,nodev,noexec`
+  - Description: Configure mount options for /var/log
+- `os_mnt_var_log_filesystem`
+  - Default: `""`
+  - Description: Configure file system for fstab entry /var/log. If empty, the current file system type will be used.
+- `os_mnt_var_log_dump`
+  - Default: ext3 + ext4 `1` / other `0`
+  - Description: Configure dump for fstab entry /var/tmp. If empty, the default depends on fstype.
+- `os_mnt_var_log_passno`
+  - Default: ext3 + ext4 `2` / other `0`
+  - Description: Configure passno for fstab entry /var/tmp. If empty, the default depends on fstype.
+- `os_mnt_var_log_audit_dir_mode`
+  - Default: `0640`
+  - Description: Set default perimissions for /var/log/audit
+- `os_mnt_var_log_audit_enabled`
+  - Default: `false`
+  - Description: Set to true to configure /var/log/audit mountpoint
+- `os_mnt_var_log_audit_src`
+  - Default: `""`
+  - Description: Set mount source for /var/log/audit. If empty, the current file system source device will be used.
+- `os_mnt_var_log_audit_options`
+  - Default: `rw,nosuid,nodev,noexec`
+  - Description: Configure mount options for /var/log/audit
+- `os_mnt_var_log_audit_filesystem`
+  - Default: `""`
+  - Description: Configure file system for fstab entry /var/log/audit. If empty, the current file system type will be used.
+- `os_mnt_var_log_audit_dump`
+  - Default: ext3 + ext4 `1` / other `0`
+  - Description: Configure dump for fstab entry /var/tmp. If empty, the default depends on fstype.
+- `os_mnt_var_log_audit_passno`
+  - Default: ext3 + ext4 `2` / other `0`
+  - Description: Configure passno for fstab entry /var/tmp. If empty, the default depends on fstype.
+- `os_mnt_var_tmp_dir_mode`
+  - Default: `1777`
+  - Description: Set default perimissions for /var/tmp
+- `os_mnt_var_tmp_enabled`
+  - Default: `false`
+  - Description: Set to true to configure /var/tmp mountpoint
+- `os_mnt_var_tmp_src`
+  - Default: `""`
+  - Description: Set mount source for /var/tmp. If empty, the current file system source device will be used.
+- `os_mnt_var_tmp_options`
+  - Default: `rw,nosuid,nodev,noexec`
+  - Description: Configure mount options for /var/tmp
+- `os_mnt_var_tmp_filesystem`
+  - Default: `""`
+  - Description: Configure file system for fstab entry /var/tmp. If empty, the current file system type will be used.
+- `os_mnt_var_tmp_dump`
+  - Default: ext3 + ext4 `1` / other `0`
+  - Description: Configure dump for fstab entry /var/tmp. If empty, the default depends on fstype.
+- `os_mnt_var_tmp_passno`
+  - Default: ext3 + ext4 `2` / other `0`
+  - Description: Configure passno for fstab entry /var/tmp. If empty, the default depends on fstype.
+- `os_netrc_enabled`
+  - Default: `True`
+  - Description: Configure filesystem for existence of .netrc file in homedir
+- `os_netrc_whitelist_user`
+  - Default: ``
+  - Description: Add list of user to allow creation of .netrc in users homedir
 
 ## Packages
 
