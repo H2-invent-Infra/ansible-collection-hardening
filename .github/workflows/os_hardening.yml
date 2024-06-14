@@ -8,12 +8,14 @@ on:  # yamllint disable-line rule:truthy
       - 'roles/os_hardening/**'
       - 'molecule/os_hardening/**'
       - '.github/workflows/os_hardening.yml'
+      - 'requirements.txt'
   pull_request:
     branches: [master]
     paths:
       - 'roles/os_hardening/**'
       - 'molecule/os_hardening/**'
       - '.github/workflows/os_hardening.yml'
+      - 'requirements.txt'
   schedule:
     - cron: '0 6 * * 3'
 
@@ -34,32 +36,31 @@ jobs:
       fail-fast: false
       matrix:
         molecule_distro:
-          - centos7
-          - centosstream8
           - centosstream9
           - rocky8
           - rocky9
-          - fedora37
           - fedora38
+          - fedora39
           - ubuntu1804
           - ubuntu2004
           - ubuntu2204
           - debian10
           - debian11
+          - debian12
           - amazon2023
           - opensuse_tumbleweed
           - arch
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: ansible_collections/devsec/hardening
           submodules: true
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: 3.12
 
       - name: Install dependencies
         run: |

@@ -8,12 +8,14 @@ on:  # yamllint disable-line rule:truthy
       - 'roles/nginx_hardening/**'
       - 'molecule/nginx_hardening/**'
       - '.github/workflows/nginx_hardening.yml'
+      - 'requirements.txt'
   pull_request:
     branches: [master]
     paths:
       - 'roles/nginx_hardening/**'
       - 'molecule/nginx_hardening/**'
       - '.github/workflows/nginx_hardening.yml'
+      - 'requirements.txt'
   schedule:
     - cron: '0 6 * * 1'
 
@@ -34,8 +36,6 @@ jobs:
       fail-fast: false
       matrix:
         molecule_distro:
-          - centos7
-          - centosstream8
           - centosstream9
           - rocky8
           - rocky9
@@ -44,21 +44,22 @@ jobs:
           - ubuntu2204
           - debian10
           - debian11
+          - debian12
           - amazon2023
           # - arch  # needs to be fixed
           # - opensuse_tumbleweed  # needs to be fixed
           # - fedora  # no support from geerlingguy role
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: ansible_collections/devsec/hardening
           submodules: true
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.11
+          python-version: 3.12
 
       - name: Install dependencies
         run: |
@@ -66,6 +67,17 @@ jobs:
           python -m pip install --no-cache-dir --upgrade pip
           pip install -r requirements.txt
         working-directory: ansible_collections/devsec/hardening
+
+      # Molecule has problems detecting the proper location for installing roles
+      # https://github.com/ansible/molecule/issues/3806
+      # we do not set a custom role path, but the automatically determined install path used is not compatible with the location molecule expects the role
+      # see CI logs of this action "INFO     Set ANSIBLE_ROLES_PATH" should not be present, since we do not set a custom path
+      # we have to find a proper way to configure this
+      - name: Temporary fix for roles
+        run: |
+          mkdir -p /home/runner/.ansible
+          ln -s /home/runner/work/ansible-collection-hardening/ansible-collection-hardening/ansible_collections/devsec/hardening/roles \
+            /home/runner/.ansible/roles
 
       - name: Test with molecule
         run: |

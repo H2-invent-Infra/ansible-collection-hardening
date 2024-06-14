@@ -65,7 +65,7 @@ ssh_client_alive_interval: 300 # sshd
 ssh_client_alive_count: 3 # sshd
 
 # Allow SSH Tunnels
-ssh_permit_tunnel: false
+ssh_permit_tunnel: "no"
 
 # Hosts with custom options.        # ssh
 # Example:
@@ -95,6 +95,9 @@ ssh_x11_forwarding: false # sshd
 
 # false to disable pam authentication.
 ssh_use_pam: true # sshd
+
+# false to disable publickey authentication
+ssh_pubkey_authentication: true
 
 # specify AuthenticationMethods
 sshd_authenticationmethods: publickey
